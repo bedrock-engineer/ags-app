@@ -1,5 +1,6 @@
 import maplibregl from "https://cdn.jsdelivr.net/npm/maplibre-gl@5.6.2/+esm";
 import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+import { scaleOrdinal } from "https://cdn.jsdelivr.net/npm/d3-scale@4/+esm";
 
 // Load the data from the JSON files
 const spts = await fetch("ispt.json").then((r) => r.json());
@@ -20,6 +21,11 @@ const agsHoleTypeConfig = {
   "RO+CP": { color: "#33a02c", name: "Rotary Open + CPT" },
   VC: { color: "#ff7f0e", name: "Vibro Core" },
 };
+
+// Create categorical color scale using d3
+const holeTypeColorScale = scaleOrdinal()
+  .domain(Object.keys(agsHoleTypeConfig))
+  .range(Object.values(agsHoleTypeConfig).map(config => config.color));
 
 // Create legend showing borehole types and colors
 const legend = document.getElementById("legend");
@@ -90,21 +96,12 @@ map.on("load", () => {
     source: locationsId,
     paint: {
       "circle-color": [
-        "match",
-        ["get", "HOLE_TYPE"],
-        "SCP",
-        agsHoleTypeConfig.SCP.color,
-        "CP+RO+RC",
-        agsHoleTypeConfig["CP+RO+RC"].color,
-        "CP+RC+RO",
-        agsHoleTypeConfig["CP+RC+RO"].color,
-        "CP+RO",
-        agsHoleTypeConfig["CP+RO"].color,
-        "RO+CP",
-        agsHoleTypeConfig["RO+CP"].color,
-        "VC",
-        agsHoleTypeConfig.VC.color,
-        "#999999", // Default gray for any unexpected values
+        "case",
+        ["has", ["get", "HOLE_TYPE"], ["literal", Object.keys(agsHoleTypeConfig)]],
+        ["get", ["get", "HOLE_TYPE"], ["literal", Object.fromEntries(
+          Object.keys(agsHoleTypeConfig).map(key => [key, holeTypeColorScale(key)])
+        )]],
+        "#999999" // Default gray for any unexpected values
       ],
       "circle-radius": 4,
       "circle-stroke-color": "#fff",
@@ -207,11 +204,15 @@ const soilColors = {
   GRANITE: "#e6a0c4", // pink (common for granite in logs)
 };
 
+const soilColorScale = scaleOrdinal()
+  .domain(Object.keys(soilColors))
+  .range(Object.values(soilColors))
+  .unknown("black"); // fallback color
+
 function soilColor(code) {
-  if (code.startsWith("SAND")) return soilColors.SAND;
-  if (code.startsWith("CLAY")) return soilColors.CLAY;
-  if (code.startsWith("SILT")) return soilColors.SILT;
-  if (code.startsWith("GRAV")) return soilColors.GRAVEL;
-  if (code.startsWith("GRANITE")) return soilColors.GRANITE;
-  return "black"; // fallback
+  // Find matching soil type based on code prefix
+  const soilType = Object.keys(soilColors).find(type => 
+    code.startsWith(type) || code.startsWith(type.slice(0, 4))
+  );
+  return soilColorScale(soilType);
 }

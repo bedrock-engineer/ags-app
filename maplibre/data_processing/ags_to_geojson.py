@@ -16,9 +16,9 @@ def _():
 def _(ags_files, mo):
     mo.md(
         f"""
-    # Data Transformation With `bedrock-ge`
+    # Data Transformation for Webmap Using `bedrock-ge`
 
-    This notebook demonstrates the data processing step for creating an interactive web map from geotechnical AGS files.
+    This notebook demonstrates the data processing step for creating an interactive web map from AGS files.
 
     **What we'll do:** Transform AGS files into web-friendly GeoJSON format using the `bedrock-ge` Python library.
 
@@ -28,9 +28,9 @@ def _(ags_files, mo):
 
     ## Making GI Data Accessible
 
-    GI data typically lives in AGS text files that require specialized software to read. Instead of sharing folders of technical files, we'll create data that works in any web browser.
+    GI data typically lives in specialized formats that require specialized software to read and view. Instead of sharing folders of technical files, we'll create data that works in any web browser.
 
-    Here's what raw AGS data looks like - not very accessible for stakeholders:
+    Here's what raw AGS data looks like — not very accessible for stakeholders:
 
     ```
     {"\n".join(ags_files[0].read_text().splitlines()[0:20])}
@@ -73,7 +73,7 @@ def _(CRS):
 
 @app.cell
 def _(Path):
-    folder_path = Path("./hk_kai_tak_ags_files")
+    folder_path = Path("../../hk_kai_tak_ags_files")
     ags_files = list(folder_path.glob("*AGS")) + list(folder_path.glob("*ags"))
     return (ags_files,)
 
@@ -132,7 +132,7 @@ def _(mo):
         r"""
     ## Step 2: Make the Data Geospatial
 
-    Now we'll transform our merged database into geospatial data. `bedrock-ge` creates 3D geospatial geometries for boreholes - specifically vertical lines representing the full depth of each investigation.
+    Now we'll transform our merged database into geospatial data. `bedrock-ge` creates 3D geospatial geometries for boreholes, specifically vertical lines representing the full depth of each investigation.
 
     This step automatically converts coordinates and creates the geometric representations needed for mapping.
     """
