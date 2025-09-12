@@ -17,6 +17,15 @@
         font-size: 12px;
       }
 
+      .panel {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 2px;
+        padding: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        z-index: 10;
+      }
+
       #map {
         background: gray;
         height: 100vh;
@@ -24,38 +33,20 @@
       }
 
       #datasets {
-        position: absolute;
         top: 10px;
         left: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 2px;
-        padding: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        z-index: 10;
         max-width: 200px;
       }
 
       #controls {
-        position: absolute;
         top: 300px;
         left: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        border-radius: 2px;
-        padding: 10px;
-        z-index: 10;
         max-width: 200px;
       }
 
       #legend {
-        position: absolute;
         top: 10px;
         right: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 2px;
-        padding: 10px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        z-index: 10;
         max-width: 250px;
         max-height: 90svh;
         overflow-y: auto;
@@ -106,24 +97,22 @@
         user-select: none;
       }
 
-      .sequential-colors {
-        border: 1px solid #d9d9d9;
-      }
+      
     </style>
   </head>
   <body>
     <div id="map"></div>
     <script src="script.js" type="module"></script>
 
-    <div id="datasets">
+    <div id="datasets" class="panel">
       <h2>Datasets</h2>
     </div>
 
-    <div id="controls">
+    <div id="controls" class="panel">
       <h2>Controls</h2>
 
       <div class="checkbox-item">
-        <input type="checkbox" id="buildings-toggle" checked>
+        <input type="checkbox" id="buildings-toggle" checked />
         <label for="buildings-toggle">3D Buildings</label>
       </div>
 
@@ -134,13 +123,13 @@
           type="range"
           min="0.0"
           max="1.0"
-          step="0.1"
+          step="0.05"
           value="0.7"
         />
       </label>
     </div>
 
-    <div id="legend">
+    <div id="legend" class="panel">
       <h2>Legend</h2>
     </div>
   </body>
