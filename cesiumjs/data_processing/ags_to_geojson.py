@@ -17,7 +17,7 @@ __generated_with = "0.15.2"
 app = marimo.App(width="medium", app_title="AGS3 to CesiumJS Webmap")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(ags_files, mo):
     mo.md(
         f"""
@@ -45,7 +45,7 @@ def _(ags_files, mo):
 
     We'll transform this technical data into **GeoJSON** which readable by web mapping libraries like CesiumJS.
 
-    This lets us build interactive 3D maps where stakeholders can click on investigation locations to see detailed results, without needing specialized software.
+    This lets us build interactive 3D maps where stakeholders can click on investigation locations to see detailed results, without needing expensive, specialized software.
     """
     )
     return
@@ -86,14 +86,13 @@ def _():
 @app.cell
 def _(CRS, CompoundCRS):
     projected_crs = CRS("EPSG:2326")  # Hong Kong 1980 Grid System
-    hk_principle_datum = CRS("EPSG:5738")   # Hong Kong Principle Datum
-    vertical_crs = CRS("EPSG:3855") # EGM2008
+    vertical_crs = CRS("EPSG:5738")   # Hong Kong Principle Datum
 
     compound_crs = CompoundCRS(
         name=f"{projected_crs.name} + {vertical_crs.name}",
         components=[projected_crs, vertical_crs],
     )
-
+    compound_crs
     return compound_crs, projected_crs, vertical_crs
 
 
@@ -105,16 +104,16 @@ def _(mo):
 
 @app.cell
 def _(CRS):
-    cesium_crs = CRS("EPSG:4979")#.to_3d()
+    cesium_crs = CRS("EPSG:4979")
     cesium_crs
     return (cesium_crs,)
 
 
 @app.cell
 def _(Transformer, cesium_crs, compound_crs, network):
-    # transformer_project_to_3d = Transformer.from_crs(projected_crs.to_3d(), cesium_crs, always_xy=False)
     transformer_compound = Transformer.from_crs(compound_crs, cesium_crs, always_xy=True)
-    network.set_network_enabled(active=True) # This is crucial!
+    # This is crucial for proper height transformation! See https://proj.org/en/stable/usage/network.html
+    network.set_network_enabled(active=True) 
     return (transformer_compound,)
 
 
@@ -238,9 +237,8 @@ def _(mo):
         r"""
     ## Make the Data Geospatial
 
-    Now we'll transform our merged database into geospatial data. `bedrock-ge` creates 3D geospatial geometries for boreholes, specifically vertical lines representing the full depth of each investigation.
+    Now we'll transform our merged database into geospatial data.  `bedrock-ge` creates 3D geospatial geometries for boreholes, specifically vertical lines representing the full depth of each GI location.
 
-    This step automatically converts coordinates and creates the geometric representations needed for mapping.
     """
     )
     return
@@ -262,7 +260,7 @@ def _(geodb):
 def _(mo):
     mo.md(
         r"""
-    ## Holes table: Select Data to Display
+    ## Location table: Select Data to Display
 
     Our map will display key information about each borehole. Let's select the columns from the `Location` DataFrame we want to show:
 
@@ -300,7 +298,7 @@ def _(location_geodf, to_epsg_4979_3d):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""Let's look at what kind of hole types are inside:""")
     return
@@ -312,7 +310,7 @@ def _(geodb):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -345,13 +343,13 @@ def _(abbr):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""We can copy this dict and use it as a lookup object in our JavaScript.""")
+    mo.md(r"""We can copy this dict and use it as an object in our JavaScript to lookup abbreviations.""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -369,7 +367,7 @@ def _(geodb):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -412,19 +410,19 @@ def _(weathering_grade_df):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""And we seem to have some offbeat weathering grades in there as well.""")
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
     ## SPT
 
-    Standard Penetration Test are Point geometries.
+    Standard Penetration Tests are Point geometries.
     """
     )
     return
@@ -448,9 +446,9 @@ def _(geodb, spt_types, to_epsg_4979_3d):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
-    mo.md(r"""In this table, SPT types are single letters, not very clear. Let's look up the SPT Types in the ABBR table and replace the codes with the full names in the SPT table.""")
+    mo.md(r"""In this table, SPT types are single letters, which not very clear for stakeholders. Let's look up the SPT Types in the ABBR table and replace the codes with the full names in the SPT table.""")
     return
 
 
@@ -462,7 +460,7 @@ def _(abbr):
     return (spt_types,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md(
         r"""
@@ -484,7 +482,7 @@ def _(mo):
     The specification references `urn:ogc:def:crs:OGC::CRS84` as “equivalent” to EPSG:4326.
 
     Whereas GeoJSON’s coordinate arrays (CRS84) uses `longitude`, `latitude` order, matching the `X`, `Y` order of math.
-    This is way we must pass `always_xy=True` to `Transformer.from_crs()`.
+    This is way we must pass `always_xy=True` keyword argument to `Transformer.from_crs()`.
     """
     )
     return

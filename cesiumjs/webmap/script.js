@@ -112,6 +112,113 @@ const weatheringGradeColorScale = scaleOrdinal()
 // https://observablehq.com/@d3/sequential-scales
 const sptScale = scaleSequential(interpolateCividis).domain([0, 100]);
 
+function onLoadLocations(dataSource) {
+  console.log("Loaded location data", dataSource.entities.values.length);
+
+  for (const entity of dataSource.entities.values) {
+    const holeType = entity.properties.HOLE_TYPE.getValue();
+    const holeId = entity.properties.HOLE_ID.getValue();
+
+    const coordinates =
+      entity.polyline && entity.polyline.positions
+        ? entity.polyline.positions.getValue()
+        : null;
+
+    // Remove the default polyline rendering
+    if (entity.polyline) {
+      entity.polyline = undefined;
+    }
+
+    // Remove the default point rendering
+    if (entity.marker) {
+      entity.marker = undefined;
+    }
+
+    if (!coordinates || coordinates.length < 2) {
+      console.warn(`No valid coordinates for hole ${holeId}`);
+      return;
+    }
+
+    const [top, bottom] = coordinates;
+    const topCartographic = Cesium.Cartographic.fromCartesian(top);
+    const bottomCartographic = Cesium.Cartographic.fromCartesian(bottom);
+
+    const lon = topCartographic.longitude * Cesium.Math.DEGREES_PER_RADIAN;
+    const lat = topCartographic.latitude * Cesium.Math.DEGREES_PER_RADIAN;
+    const topElevation = topCartographic.height;
+    const bottomElevation = bottomCartographic.height;
+
+    const length = Math.abs(topElevation - bottomElevation);
+    const centerElevation = (topElevation + bottomElevation) / 2;
+
+    const color = Cesium.Color.fromCssColorString(holeTypeColorScale(holeType));
+
+    dataSource.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, centerElevation),
+      cylinder: new Cesium.CylinderGraphics({
+        topRadius: 3,
+        bottomRadius: 3,
+        length: length,
+        fill: false,
+        outline: true,
+        outlineColor: color,
+        outlineWidth: 1,
+        outlineOpacity: 0.5,
+      }),
+      properties: entity.properties,
+      name: holeId,
+    });
+  }
+}
+
+function onLoadWeatheringData(dataSource) {
+  console.log("Loaded weathering data:", dataSource.entities.values.length);
+
+  for (const entity of dataSource.entities.values) {
+    const wetheringGrade = entity.properties?.WETH_GRAD?.getValue();
+    const color = weatheringGradeColorScale(wetheringGrade);
+
+    if (entity.billboard) {
+      entity.billboard = undefined;
+      // Add a point for point geometries
+      entity.point = new Cesium.PointGraphics({
+        pixelSize: 4,
+        color: Cesium.Color.fromCssColorString(color),
+        outlineColor: Cesium.Color.WHITE,
+        outlineWidth: 1,
+      });
+    }
+
+    if (entity.polyline) {
+      entity.polyline.material = Cesium.Color.fromCssColorString(color);
+      entity.polyline.width = 7;
+      entity.polyline.clampToGround = false;
+    }
+  }
+}
+
+function onLoadSptData(dataSource) {
+  console.log("Loaded ispt data:", dataSource.entities.values.length);
+
+  for (const entity of dataSource.entities.values) {
+    const sptNValue = entity.properties?.ISPT_NVAL?.getValue();
+    const color = sptScale(sptNValue);
+    // remove default pin for points
+    if (entity.billboard) {
+      entity.billboard = undefined;
+    }
+    if (!sptNValue) continue;
+
+    entity.point = new Cesium.PointGraphics({
+      pixelSize: 4,
+      color: Cesium.Color.fromCssColorString(color),
+      outlineColor: Cesium.Color.WHITE,
+      outlineWidth: 1,
+      heightReference: Cesium.HeightReference.NONE,
+    });
+  }
+}
+
 const datasets = [
   {
     id: "locations",
@@ -123,66 +230,7 @@ const datasets = [
       title: "Hole Types",
       config: agsHoleTypes,
     }),
-    onLoad: (dataSource) => {
-      console.log("Loaded location data", dataSource.entities.values.length);
-
-      for (const entity of dataSource.entities.values) {
-        const holeType = entity.properties.HOLE_TYPE.getValue();
-        const holeId = entity.properties.HOLE_ID.getValue();
-
-        const coordinates =
-          entity.polyline && entity.polyline.positions
-            ? entity.polyline.positions.getValue()
-            : null;
-
-        // Remove the default polyline rendering
-        if (entity.polyline) {
-          entity.polyline = undefined;
-        }
-
-        // Remove the default point rendering
-        if (entity.marker) {
-          entity.marker = undefined;
-        }
-
-        if (!coordinates || coordinates.length < 2) {
-          console.warn(`No valid coordinates for hole ${holeId}`);
-          return;
-        }
-
-        const [top, bottom] = coordinates;
-        const topCartographic = Cesium.Cartographic.fromCartesian(top);
-        const bottomCartographic = Cesium.Cartographic.fromCartesian(bottom);
-
-        const lon = topCartographic.longitude * Cesium.Math.DEGREES_PER_RADIAN;
-        const lat = topCartographic.latitude * Cesium.Math.DEGREES_PER_RADIAN;
-        const topElevation = topCartographic.height;
-        const bottomElevation = bottomCartographic.height;
-
-        const length = Math.abs(topElevation - bottomElevation);
-        const centerElevation = (topElevation + bottomElevation) / 2;
-
-        const color = Cesium.Color.fromCssColorString(
-          holeTypeColorScale(holeType)
-        );
-
-        dataSource.entities.add({
-          position: Cesium.Cartesian3.fromDegrees(lon, lat, centerElevation),
-          cylinder: new Cesium.CylinderGraphics({
-            topRadius: 3,
-            bottomRadius: 3,
-            length: length,
-            fill: false,
-            outline: true,
-            outlineColor: color,
-            outlineWidth: 1,
-            outlineOpacity: 0.5,
-          }),
-          properties: entity.properties,
-          name: holeId,
-        });
-      }
-    },
+    onLoad: onLoadLocations,
   },
   {
     id: "weathering",
@@ -194,31 +242,7 @@ const datasets = [
       title: "Weathering Grade",
       config: null,
     }),
-    onLoad: (dataSource) => {
-      console.log("Loaded weathering data:", dataSource.entities.values.length);
-
-      for (const entity of dataSource.entities.values) {
-        const wetheringGrade = entity.properties?.WETH_GRAD?.getValue();
-        const color = weatheringGradeColorScale(wetheringGrade);
-
-        if (entity.billboard) {
-          entity.billboard = undefined;
-          // Add a point for point geometries
-          entity.point = new Cesium.PointGraphics({
-            pixelSize: 4,
-            color: Cesium.Color.fromCssColorString(color),
-            outlineColor: Cesium.Color.WHITE,
-            outlineWidth: 1,
-          });
-        }
-
-        if (entity.polyline) {
-          entity.polyline.material = Cesium.Color.fromCssColorString(color);
-          entity.polyline.width = 7;
-          entity.polyline.clampToGround = false;
-        }
-      }
-    },
+    onLoad: onLoadWeatheringData,
   },
   {
     id: "ispt",
@@ -229,27 +253,7 @@ const datasets = [
       scale: sptScale,
       title: "SPT N Value",
     }),
-    onLoad: (dataSource) => {
-      console.log("Loaded ispt data:", dataSource.entities.values.length);
-
-      for (const entity of dataSource.entities.values) {
-        const sptNValue = entity.properties?.ISPT_NVAL?.getValue();
-        const color = sptScale(sptNValue);
-        // remove default pin for points
-        if (entity.billboard) {
-          entity.billboard = undefined;
-        }
-        if (!sptNValue) continue;
-
-        entity.point = new Cesium.PointGraphics({
-          pixelSize: 4,
-          color: Cesium.Color.fromCssColorString(color),
-          outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 1,
-          heightReference: Cesium.HeightReference.NONE,
-        });
-      }
-    },
+    onLoad: onLoadSptData,
   },
 ];
 
