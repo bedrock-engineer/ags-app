@@ -1,13 +1,9 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
+node_modules/
 build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-
-# Mac
+.react-router/
+.wrangler/
+.env*
+!.env.example
+*.log
 .DS_Store
+worker-configuration.d.ts

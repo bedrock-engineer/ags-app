@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #5d7a5a;
+  --color-brand-dark: #3f5a3c;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "IBM Plex Mono", Menlo, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+.pancake {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.card {
+  @apply bg-white border border-gray-200 rounded-sm p-3;
+}
+
+.card-title {
+  @apply text-xs font-semibold tracking-wide uppercase text-gray-500 mb-2;
+}
+
+.btn-primary {
+  @apply inline-flex items-center gap-1 px-2 py-1 border rounded-sm text-sm transition-colors cursor-pointer border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 data-pressed:bg-blue-200;
+}
+.btn-secondary {
+  @apply inline-flex items-center gap-1 px-2 py-1 border rounded-sm text-sm transition-colors cursor-pointer border-gray-300 bg-white text-gray-700 hover:bg-gray-100 data-pressed:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.data-table {
+  @apply w-full text-xs border-collapse;
+}
+.data-table th {
+  @apply text-left font-semibold px-2 py-1 bg-gray-100 border-b border-gray-200 whitespace-nowrap sticky top-0;
+}
+.data-table td {
+  @apply px-2 py-0.5 border-b border-gray-100 whitespace-nowrap;
+}
+.data-table tr:hover td {
+  @apply bg-blue-50;
+}
+.data-table tr[aria-selected="true"] td {
+  @apply bg-blue-100;
+}
+
+.file-dropzone[data-drop-target] {
+  @apply outline-2 outline-dashed outline-blue-400 bg-blue-50;
+}
+
+.react-aria-Tab {
+  @apply px-3 py-1.5 text-sm text-gray-600 border-b-2 border-transparent cursor-pointer outline-none;
+}
+.react-aria-Tab[data-selected] {
+  @apply text-blue-700 border-blue-600;
+}
+.react-aria-Tab[data-focus-visible] {
+  @apply ring-2 ring-blue-300 rounded-sm;
+}
+.react-aria-TabList {
+  @apply flex gap-1 border-b border-gray-200 mb-3;
+}
