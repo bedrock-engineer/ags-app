@@ -70,25 +70,41 @@ export function App() {
     [files],
   );
 
-  // Locations without coordinates first, so the grid can be guessed from the raw numbers.
+  // Locations without coordinates first, so the grid can be guessed from the raw numbers,
+  // per file: a Hong Kong file and a London file in the same session use different grids.
   const rawLocations = useMemo(
     () => files.flatMap((f) => extractLocations(f, null)),
     [files],
   );
-  const detectedCrs = useMemo(() => detectCrs(rawLocations), [rawLocations]);
-  const effectiveCrs =
-    crsCode === AUTO ? (detectedCrs ?? "EPSG:27700") : crsCode;
+  const detectedByFile = useMemo(() => {
+    const out: Record<string, string | null> = {};
+    for (const f of files) {
+      out[f.id] = detectCrs(rawLocations.filter((l) => l.fileId === f.id));
+    }
+    return out;
+  }, [files, rawLocations]);
+  const detectedSummary = [
+    ...new Set(
+      Object.values(detectedByFile).filter((c): c is string => c !== null),
+    ),
+  ].join(", ");
 
   const allLocations: Array<LocationInfo> = useMemo(() => {
-    const toLonLat = makeToLonLat(effectiveCrs);
+    const transformers = new Map<string, ReturnType<typeof makeToLonLat>>();
     return rawLocations.map((l) => {
+      const code =
+        crsCode === AUTO ? (detectedByFile[l.fileId] ?? "EPSG:27700") : crsCode;
+      if (!transformers.has(code)) {
+        transformers.set(code, makeToLonLat(code));
+      }
+      const toLonLat = transformers.get(code);
       if (!toLonLat || l.easting === null || l.northing === null) {
         return l;
       }
       const ll = toLonLat(l.easting, l.northing);
       return ll ? { ...l, lon: ll[0], lat: ll[1] } : l;
     });
-  }, [rawLocations, effectiveCrs]);
+  }, [rawLocations, crsCode, detectedByFile]);
 
   const locationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -260,8 +276,8 @@ export function App() {
               >
                 {CRS_OPTIONS.map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.code === AUTO && detectedCrs
-                      ? `Detected: ${detectedCrs}`
+                    {c.code === AUTO && detectedSummary
+                      ? `Detected per file: ${detectedSummary}`
                       : c.name}
                   </option>
                 ))}
