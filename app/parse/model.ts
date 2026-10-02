@@ -125,7 +125,7 @@ export function columnsOf(parsed: ParsedAgs, group: string): Array<ColumnMeta> {
 }
 
 /** A cell as a number, whatever Arrow handed back (number, bigint, string). */
-export function asNumber(value: unknown): number | null {
+function asNumber(value: unknown): number | null {
   if (value === null || value === undefined) {
     return null;
   }
