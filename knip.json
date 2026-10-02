@@ -5,6 +5,7 @@
     "workers/**/*.ts"
   ],
   "ignoreDependencies": [
+    "@bedrock-engineer/ags-parse",
     "tailwindcss"
   ]
 }
