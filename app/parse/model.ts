@@ -150,7 +150,6 @@ export function formatDate(d: Date, withTime: boolean): string {
 
 /** apache-arrow types `Vector.get()` as `any`; this is the one place that accepts it. */
 function cellValue(vector: Vector, row: number): unknown {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   return vector.get(row);
 }
 
@@ -187,8 +186,8 @@ export function formatCell(table: Table, column: string, row: number): string {
   if (value === null || value === undefined) {
     return "";
   }
-  const type = vector.type;
-  if (DataType.isDate(type) || DataType.isTimestamp(type)) {
+  const type = table.schema.fields.find((f) => f.name === column)?.type;
+  if (type && (DataType.isDate(type) || DataType.isTimestamp(type))) {
     const ms = value instanceof Date ? value.getTime() : asNumber(value);
     if (ms !== null) {
       const d = new Date(ms);
@@ -210,8 +209,7 @@ function str(table: Table, column: string, row: number): string | null {
   if (!v) {
     return null;
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const value: unknown = v.get(row);
+  const value = cellValue(v, row);
   return value === null || value === undefined
     ? null
     : formatCell(table, column, row);
