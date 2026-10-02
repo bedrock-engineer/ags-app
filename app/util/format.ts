@@ -16,7 +16,7 @@ export function formatNumber(n: number | null, digits = 2): string {
 }
 
 /** Stable, distinguishable colors for files on the map and in lists. */
-export const FILE_COLORS = [
+const FILE_COLORS = [
   "#1f77b4",
   "#d62728",
   "#2ca02c",

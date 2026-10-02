@@ -60,7 +60,7 @@ export function App() {
   const [isPending, startTransition] = useTransition();
   // False during server rendering and hydration, true once the client takes over: the map is client only.
   const isClient = useSyncExternalStore(
-    () => () => {},
+    () => () => undefined,
     () => true,
     () => false,
   );

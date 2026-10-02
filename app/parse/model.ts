@@ -4,11 +4,17 @@
  * here imports React.
  */
 import type { AgsFile } from "@bedrock-engineer/ags-parse";
-import { DataType, tableFromIPC, type Table, type Vector } from "apache-arrow";
+import {
+  DataType,
+  tableFromIPC,
+  type Field,
+  type Table,
+  type Vector,
+} from "apache-arrow";
 import type { FeatureCollection } from "geojson";
 import { loadAgsParse } from "./ags-parse";
 
-export type Edition = "AGS3" | "AGS4";
+type Edition = "AGS3" | "AGS4";
 export type Severity = "error" | "warning" | "info";
 
 export interface Issue {
@@ -33,7 +39,7 @@ export interface GroupSummary {
   headings: Array<string>;
 }
 
-export interface IssueCount {
+interface IssueCount {
   code: string;
   ags4_rule: string | null;
   severity: Severity;
@@ -140,7 +146,7 @@ function pad2(n: number): string {
   return n < 10 ? `0${n}` : String(n);
 }
 
-export function formatDate(d: Date, withTime: boolean): string {
+function formatDate(d: Date, withTime: boolean): string {
   const date = `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
   if (!withTime) {
     return date;
@@ -154,7 +160,7 @@ function cellValue(vector: Vector, row: number): unknown {
 }
 
 /** Any value as text; objects become JSON rather than "[object Object]". */
-export function toText(value: unknown): string {
+function toText(value: unknown): string {
   if (value === null || value === undefined) {
     return "";
   }
@@ -186,7 +192,10 @@ export function formatCell(table: Table, column: string, row: number): string {
   if (value === null || value === undefined) {
     return "";
   }
-  const type = table.schema.fields.find((f) => f.name === column)?.type;
+  // apache-arrow types Field.type as any; the schema field is a DataType.
+  const field = table.schema.fields.find((f) => f.name === column) as
+    Field<DataType> | undefined;
+  const type = field?.type;
   if (type && (DataType.isDate(type) || DataType.isTimestamp(type))) {
     const ms = value instanceof Date ? value.getTime() : asNumber(value);
     if (ms !== null) {
@@ -229,7 +238,7 @@ export interface LocationInfo {
   lat: number | null;
 }
 
-export function locationGroup(edition: Edition): {
+function locationGroup(edition: Edition): {
   group: string;
   prefix: string;
 } {
@@ -238,7 +247,7 @@ export function locationGroup(edition: Edition): {
     : { group: "HOLE", prefix: "HOLE" };
 }
 
-export function locationIdColumn(edition: Edition): string {
+function locationIdColumn(edition: Edition): string {
   return edition === "AGS4" ? "LOCA_ID" : "HOLE_ID";
 }
 
@@ -284,7 +293,7 @@ export function extractLocations(
   return out;
 }
 
-export interface Stratum {
+interface Stratum {
   top: number;
   base: number | null;
   description: string | null;
@@ -336,7 +345,7 @@ export function strataFor(
     .sort((a, b) => a.top - b.top);
 }
 
-export interface DepthValue {
+interface DepthValue {
   depth: number;
   value: number;
 }
@@ -361,7 +370,7 @@ export function sptFor(
   return out.sort((a, b) => a.depth - b.depth);
 }
 
-export interface CptReading {
+interface CptReading {
   depth: number;
   qc: number | null;
   fs: number | null;

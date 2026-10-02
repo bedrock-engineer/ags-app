@@ -6,7 +6,7 @@
  */
 import proj4 from "proj4";
 
-export interface CrsOption {
+interface CrsOption {
   code: string;
   name: string;
   def?: string;
