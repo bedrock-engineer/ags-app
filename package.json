@@ -32,7 +32,6 @@
   "dependencies": {
     "@bedrock-engineer/ags-parse": "file:../../ags-parse-rs.worktrees/ags-parse-v0/crates/ags-parse-wasm/pkg",
     "@observablehq/plot": "^0.6.17",
-    "@react-router/node": "^8.4.0",
     "apache-arrow": "^21.0.0",
     "isbot": "^5.1.27",
     "lucide-react": "^0.554.0",
@@ -41,7 +40,6 @@
     "react": "^19.3.0",
     "react-aria-components": "^1.20.0",
     "react-dom": "^19.3.0",
-    "react-error-boundary": "^6.1.6",
     "react-router": "^8.4.0"
   },
   "devDependencies": {
