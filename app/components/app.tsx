@@ -1,12 +1,5 @@
 import { UploadIcon } from "lucide-react";
-import {
-  lazy,
-  Suspense,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-} from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, useSyncExternalStore, useTransition } from "react";
 import {
   Button,
   FileTrigger,
@@ -15,13 +8,10 @@ import {
   TabPanel,
   Tabs,
 } from "react-aria-components";
-import {
-  extractLocations,
-  parseAgsFile,
-  type LocationInfo,
-  type ParsedAgs,
-} from "~/parse/model";
-import { AUTO, CRS_OPTIONS, detectCrs, makeToLonLat } from "~/util/crs";
+import { crsHints, extractLocations, knownPositions, parseAgsFile, type LocationInfo, type ParsedAgs } from "~/parse/model";
+import type { CrsIndex, CrsKind, KnownPosition, Point } from "@bedrock-engineer/crs-index";
+import { AGS_SHORTLIST_ID, getShortlist, loadCrs, rankByResidual, shortlistPriors, suggestCrs, toLonLat } from "~/util/crs";
+import { CrsPanel } from "./crs-panel";
 import { downloadFile } from "~/util/download";
 import { BoreholeLog } from "./borehole-log";
 import { DownloadButtons } from "./download-buttons";
@@ -46,6 +36,9 @@ interface Failed {
 
 type TabKey = "overview" | "groups" | "issues" | "log";
 
+/** Grids first, then grid-plus-height systems; latitude and longitude for files that carry degrees. */
+const CRS_KINDS: ReadonlyArray<CrsKind> = ["projected", "compound", "geographic"];
+
 export function App() {
   const [files, setFiles] = useState<Array<ParsedAgs>>([]);
   const [failed, setFailed] = useState<Array<Failed>>([]);
@@ -56,7 +49,8 @@ export function App() {
   } | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [tab, setTab] = useState<TabKey>("overview");
-  const [crsCode, setCrsCode] = useState<string>(AUTO);
+  const [crsIndex, setCrsIndex] = useState<CrsIndex | null>(null);
+  const [crsByFile, setCrsByFile] = useState<Record<string, number | null>>({});
   const [isPending, startTransition] = useTransition();
   // False during server rendering and hydration, true once the client takes over: the map is client only.
   const isClient = useSyncExternalStore(
@@ -70,41 +64,80 @@ export function App() {
     [files],
   );
 
-  // Locations without coordinates first, so the grid can be guessed from the raw numbers,
-  // per file: a Hong Kong file and a London file in the same session use different grids.
+  // Locations without coordinates first; the grid is suggested per file from the raw
+  // numbers against every EPSG CRS's extent, and the user can override it per file.
   const rawLocations = useMemo(
     () => files.flatMap((f) => extractLocations(f, null)),
     [files],
   );
-  const detectedByFile = useMemo(() => {
-    const out: Record<string, string | null> = {};
+  useEffect(() => {
+    if (files.length > 0 && !crsIndex) {
+      loadCrs()
+        .then(setCrsIndex)
+        .catch((error: unknown) => {
+          console.error(error);
+        });
+    }
+  }, [files.length, crsIndex]);
+  const shortlist = useMemo(() => getShortlist(AGS_SHORTLIST_ID) ?? null, []);
+  const pointsByFile = useMemo(() => {
+    const out: Record<string, Array<Point>> = {};
     for (const f of files) {
-      out[f.id] = detectCrs(rawLocations.filter((l) => l.fileId === f.id));
+      out[f.id] = rawLocations.flatMap((l): Array<Point> =>
+        l.fileId === f.id && l.easting !== null && l.northing !== null ? [[l.easting, l.northing]] : [],
+      );
     }
     return out;
   }, [files, rawLocations]);
-  const detectedSummary = [
-    ...new Set(
-      Object.values(detectedByFile).filter((c): c is string => c !== null),
-    ),
-  ].join(", ");
+  // What else the file says about its grid: PROJ_LOC and PROJ_NAME, LOCA_GREF codes, and
+  // locations that also carry a latitude and longitude.
+  const hintsByFile = useMemo(() => Object.fromEntries(files.map((f) => [f.id, crsHints(f)])) as Record<string, Array<string>>, [files]);
+  const knownByFile = useMemo(
+    () => Object.fromEntries(files.map((f) => [f.id, knownPositions(f)])) as Record<string, Array<KnownPosition>>,
+    [files],
+  );
+  const suggestedByFile = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    if (!crsIndex) {
+      return out;
+    }
+    const priors = shortlist ? shortlistPriors(shortlist) : undefined;
+    for (const f of files) {
+      const pts = pointsByFile[f.id] ?? [];
+      if (pts.length === 0) {
+        out[f.id] = null;
+        continue;
+      }
+      const known = knownByFile[f.id] ?? [];
+      const suggestions = suggestCrs(crsIndex, pts, {
+        priors,
+        kinds: CRS_KINDS,
+        hints: hintsByFile[f.id],
+        toLonLat,
+        limit: known.length > 0 ? 20 : 1,
+      });
+      const ranked = known.length > 0 ? rankByResidual(suggestions, known) : suggestions;
+      out[f.id] = ranked[0]?.crs.code ?? null;
+    }
+    return out;
+  }, [crsIndex, files, pointsByFile, hintsByFile, knownByFile, shortlist]);
+  const effectiveCrs = (fileId: string): number | null =>
+    fileId in crsByFile ? (crsByFile[fileId] ?? null) : (suggestedByFile[fileId] ?? null);
 
   const allLocations: Array<LocationInfo> = useMemo(() => {
-    const transformers = new Map<string, ReturnType<typeof makeToLonLat>>();
+    if (!crsIndex) {
+      return rawLocations;
+    }
     return rawLocations.map((l) => {
-      const code =
-        crsCode === AUTO ? (detectedByFile[l.fileId] ?? "EPSG:27700") : crsCode;
-      if (!transformers.has(code)) {
-        transformers.set(code, makeToLonLat(code));
-      }
-      const toLonLat = transformers.get(code);
-      if (!toLonLat || l.easting === null || l.northing === null) {
+      const code = l.fileId in crsByFile ? crsByFile[l.fileId] : suggestedByFile[l.fileId];
+      const entry = code !== null && code !== undefined ? crsIndex.byCode.get(code) : undefined;
+      if (!entry || l.easting === null || l.northing === null) {
         return l;
       }
-      const ll = toLonLat(l.easting, l.northing);
+      const ll = toLonLat(entry, l.easting, l.northing);
       return ll ? { ...l, lon: ll[0], lat: ll[1] } : l;
     });
-  }, [rawLocations, crsCode, detectedByFile]);
+  }, [rawLocations, crsIndex, crsByFile, suggestedByFile]);
 
   const locationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -265,29 +298,24 @@ export function App() {
 
           <section className="card">
             <h2 className="card-title">Coordinates</h2>
-            <label className="text-sm block">
-              Grid of NATE/NATN
-              <select
-                className="mt-1 w-full border border-gray-300 rounded-sm px-1 py-0.5 text-sm"
-                value={crsCode}
-                onChange={(e) => {
-                  setCrsCode(e.target.value);
-                }}
-              >
-                {CRS_OPTIONS.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code === AUTO && detectedSummary
-                      ? `Detected per file: ${detectedSummary}`
-                      : c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="text-xs text-gray-500 mt-1">
-              AGS files rarely say which grid they use. The map shows{" "}
-              {allLocations.filter((l) => l.lon !== null).length} of{" "}
-              {allLocations.length} locations.
-            </p>
+            <CrsPanel
+              index={crsIndex}
+              selectedFile={selectedFile}
+              points={selectedFile ? (pointsByFile[selectedFile.id] ?? []) : []}
+              hints={selectedFile ? (hintsByFile[selectedFile.id] ?? []) : []}
+              known={selectedFile ? (knownByFile[selectedFile.id] ?? []) : []}
+              kinds={CRS_KINDS}
+              value={selectedFile ? effectiveCrs(selectedFile.id) : null}
+              chosen={selectedFile ? selectedFile.id in crsByFile : false}
+              shortlist={shortlist}
+              onChange={(code) => {
+                if (selectedFile) {
+                  setCrsByFile((previous) => ({ ...previous, [selectedFile.id]: code }));
+                }
+              }}
+              shown={allLocations.filter((l) => l.lon !== null).length}
+              total={allLocations.length}
+            />
           </section>
 
           <section className="card">

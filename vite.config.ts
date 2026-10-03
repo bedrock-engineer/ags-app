@@ -7,12 +7,16 @@ import { defineConfig, searchForWorkspaceRoot } from "vite";
 // While @bedrock-engineer/ags-parse is a `file:` link into the ags-parse-rs
 // checkout, its .wasm lives outside this project and Vite's dev server must be
 // allowed to serve it. Harmless once the package comes from npm.
-function agsParseRealPath(): string {
-  try {
-    return realpathSync("node_modules/@bedrock-engineer/ags-parse");
-  } catch {
-    return "node_modules";
+function linkedPackagePaths(): Array<string> {
+  const out: Array<string> = [];
+  for (const name of ["ags-parse", "crs-index", "crs-picker"]) {
+    try {
+      out.push(realpathSync(`node_modules/@bedrock-engineer/${name}`));
+    } catch {
+      // not linked: a regular install, nothing to allow
+    }
   }
+  return out;
 }
 
 export default defineConfig({
@@ -21,7 +25,7 @@ export default defineConfig({
   },
   server: {
     fs: {
-      allow: [searchForWorkspaceRoot(process.cwd()), agsParseRealPath()],
+      allow: [searchForWorkspaceRoot(process.cwd()), ...linkedPackagePaths()],
     },
   },
   plugins: [
@@ -36,6 +40,6 @@ export default defineConfig({
   // and maplibre-gl loads its worker the same way; the dependency optimizer
   // breaks both in dev, so they are served as plain ESM.
   optimizeDeps: {
-    exclude: ["@bedrock-engineer/ags-parse", "maplibre-gl"],
+    exclude: ["@bedrock-engineer/ags-parse", "@bedrock-engineer/crs-index", "@bedrock-engineer/crs-picker", "maplibre-gl"],
   },
 });

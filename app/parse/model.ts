@@ -3,6 +3,7 @@
  * the UI needs from them (locations, strata, SPT and CPT series). Nothing in
  * here imports React.
  */
+import type { KnownPosition } from "@bedrock-engineer/crs-index";
 import type { AgsFile } from "@bedrock-engineer/ags-parse";
 import {
   DataType,
@@ -289,6 +290,87 @@ export function extractLocations(
       lon,
       lat,
     });
+  }
+  return out;
+}
+
+/** What AGS4 LOCA_GREF codes (the dictionary's abbreviations) mean, as words a CRS name contains. */
+const GRID_REFERENCE_SYSTEMS: Record<string, string> = {
+  OSGB: "British National Grid",
+  OSI: "Irish Grid",
+  ITM: "Irish Transverse Mercator",
+};
+
+/**
+ * Text in the file that may name the place or the grid: the project's name and
+ * location, and the grid reference system codes spelled out. Feeds the CRS
+ * suggestions; a phrase only counts when every word of it occurs in a CRS's
+ * name or area of use, so noise here is harmless.
+ */
+export function crsHints(parsed: ParsedAgs): Array<string> {
+  const hints = new Set<string>();
+  const proj = groupTable(parsed, "PROJ");
+  if (proj) {
+    for (let r = 0; r < proj.numRows; r++) {
+      for (const column of ["PROJ_LOC", "PROJ_NAME"]) {
+        const v = str(proj, column, r);
+        if (v) {
+          hints.add(v);
+        }
+      }
+    }
+  }
+  const { group, prefix } = locationGroup(parsed.summary.edition);
+  const table = groupTable(parsed, group);
+  if (table) {
+    for (let r = 0; r < table.numRows; r++) {
+      const code = str(table, `${prefix}_GREF`, r)?.trim().toUpperCase();
+      if (code) {
+        hints.add(GRID_REFERENCE_SYSTEMS[code] ?? code);
+      }
+    }
+  }
+  return [...hints];
+}
+
+/**
+ * Degrees from an AGS DMS value such as `51:28:52.498`, `0:01:30W` or `-0.025`,
+ * or null when the text is not one.
+ */
+function parseDms(text: string | null): number | null {
+  if (!text) {
+    return null;
+  }
+  const m = /^([-+]?)\s*(\d+(?:\.\d+)?)(?::(\d+(?:\.\d+)?))?(?::(\d+(?:\.\d+)?))?\s*([NSEW])?$/i.exec(text.trim());
+  if (!m) {
+    return null;
+  }
+  const degrees = Number(m[2]) + (m[3] ? Number(m[3]) / 60 : 0) + (m[4] ? Number(m[4]) / 3600 : 0);
+  const hemisphere = m[5]?.toUpperCase();
+  const value = m[1] === "-" || hemisphere === "S" || hemisphere === "W" ? -degrees : degrees;
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Locations that carry both grid coordinates and a latitude and longitude
+ * (AGS4 LOCA_LAT and LOCA_LON): with these, the suggested grid is the one
+ * that reproduces them, which settles UTM-style zones. At most `limit` of them.
+ */
+export function knownPositions(parsed: ParsedAgs, limit = 50): Array<KnownPosition> {
+  const { group, prefix } = locationGroup(parsed.summary.edition);
+  const table = groupTable(parsed, group);
+  if (!table) {
+    return [];
+  }
+  const out: Array<KnownPosition> = [];
+  for (let r = 0; r < table.numRows && out.length < limit; r++) {
+    const x = num(table, `${prefix}_NATE`, r);
+    const y = num(table, `${prefix}_NATN`, r);
+    const lat = parseDms(str(table, `${prefix}_LAT`, r));
+    const lon = parseDms(str(table, `${prefix}_LON`, r));
+    if (x !== null && y !== null && lat !== null && lon !== null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+      out.push({ x, y, lon, lat });
+    }
   }
   return out;
 }

@@ -6,6 +6,9 @@
   ],
   "ignoreDependencies": [
     "@bedrock-engineer/ags-parse",
-    "tailwindcss"
+    "@bedrock-engineer/crs-index",
+    "@bedrock-engineer/crs-picker",
+    "tailwindcss",
+    "proj4"
   ]
 }

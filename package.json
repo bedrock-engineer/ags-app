@@ -40,7 +40,9 @@
     "react": "^19.3.0",
     "react-aria-components": "^1.20.0",
     "react-dom": "^19.3.0",
-    "react-router": "^8.4.0"
+    "react-router": "^8.4.0",
+    "@bedrock-engineer/crs-index": "file:../../crs-picker.worktrees/v0/packages/crs-index",
+    "@bedrock-engineer/crs-picker": "file:../../crs-picker.worktrees/v0/packages/crs-picker"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.42.2",
